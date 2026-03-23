@@ -1,0 +1,53 @@
+{
+  "manifests": [
+    {
+      "id": "manifest_sample_1",
+      "description": "Sample manifest for a text file",
+      "file_name": "document.txt",
+      "file_size": 1024,
+      "timestamp": "2024-01-15T10:30:00Z",
+      "file_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "file_hash_algorithm": "SHA-256",
+      "chunk_count": 1,
+      "chunks": [
+        {
+          "index": 0,
+          "size": 1024,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "id": "manifest_sample_2",
+      "description": "Sample manifest for a larger file with multiple chunks",
+      "file_name": "image.png",
+      "file_size": 4096000,
+      "timestamp": "2024-01-15T11:45:00Z",
+      "file_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+      "file_hash_algorithm": "SHA-256",
+      "chunk_count": 4,
+      "chunks": [
+        {
+          "index": 0,
+          "size": 1048576,
+          "hash": "6b86b273f403eb80dba5f5ada9f49a8f46fc55d2f1e0bc9e8cfb1938b8f6f7d7"
+        },
+        {
+          "index": 1,
+          "size": 1048576,
+          "hash": "d4735fea8e8c94b7ff8cf3010cac474c7c12879df6c7e09e38f9c4c1e7f8a1f3"
+        },
+        {
+          "index": 2,
+          "size": 1048576,
+          "hash": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+        },
+        {
+          "index": 3,
+          "size": 950272,
+          "hash": "8f14e45fceea167a5a36dedd4bea2543fd8c42e6ad5d9e3af53d57eec5ef6e6e"
+        }
+      ]
+    }
+  ]
+}

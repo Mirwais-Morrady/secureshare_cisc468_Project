@@ -1,0 +1,16 @@
+{
+  "vectors": [
+    {
+      "input_b64": "aGVsbG8=",
+      "sha256_b64": "LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ="
+    },
+    {
+      "input_b64": "c2VjdXJlLXNoYXJl",
+      "sha256_b64": "FvAiDxca/Scmz47kBVA1N5YKSVd9uSQIct81NySxtVA="
+    },
+    {
+      "input_b64": "dGVzdC12ZWN0b3I=",
+      "sha256_b64": "xeTH8vtwUKscowc9qAdukVYLLMmsT+KXkqJCLiCXEwI="
+    }
+  ]
+}

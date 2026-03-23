@@ -1,0 +1,49 @@
+{
+  "test_cases": [
+    {
+      "id": "aes_gcm_1",
+      "description": "AES-256-GCM encryption with 96-bit nonce",
+      "cipher": "AES-256-GCM",
+      "key": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "nonce": "000000000000000000000000",
+      "plaintext": "00000000000000000000000000000000",
+      "aad": "d9e8989999a8a0a0a99999a0a09a0aa0a09a0aa0",
+      "ciphertext": "0388dace60b6a392f328c2b6",
+      "tag": "073658e99d5997ebd4b19a2a4b7f9e4f"
+    },
+    {
+      "id": "aes_gcm_2",
+      "description": "AES-256-GCM with longer message",
+      "cipher": "AES-256-GCM",
+      "key": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "nonce": "00000000000000000000000000",
+      "plaintext": "d9e8989999a8a0a0a99999a0a09a0aa0a09a0aa0a09a0aa0a09a0aa0a09a0aa0",
+      "aad": "0123456789abcdef0123456789abcdef",
+      "ciphertext": "c96c1f3b3ca2c7fb4d3b14d8f4b3d5a6c8e0f1f3f5f7f9fbfdfafcfef0f1f3f5",
+      "tag": "e80d948f00c34a13a3e7b4e2d8f9f1c2"
+    },
+    {
+      "id": "aes_gcm_3",
+      "description": "AES-128-GCM encryption",
+      "cipher": "AES-128-GCM",
+      "key": "00000000000000000000000000000000",
+      "nonce": "000000000000000000000000",
+      "plaintext": "00000000000000000000000000000000",
+      "aad": "d9e8989999a8a0a0a99999a0a09a0aa0",
+      "ciphertext": "0388dace60b6a392f328c2b6",
+      "tag": "1e1d8eb98b6c14b2c8b3c5f0"
+    },
+    {
+      "id": "aes_gcm_decrypt_1",
+      "description": "AES-256-GCM decryption",
+      "cipher": "AES-256-GCM",
+      "key": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "nonce": "00000000000000000000000000",
+      "ciphertext": "c96c1f3b3ca2c7fb4d3b14d8f4b3d5a6c8e0f1f3f5f7f9fbfdfafcfef0f1f3f5",
+      "aad": "0123456789abcdef0123456789abcdef",
+      "tag": "e80d948f00c34a13a3e7b4e2d8f9f1c2",
+      "expected_plaintext": "d9e8989999a8a0a0a99999a0a09a0aa0a09a0aa0a09a0aa0a09a0aa0a09a0aa0",
+      "expected_valid": true
+    }
+  ]
+}

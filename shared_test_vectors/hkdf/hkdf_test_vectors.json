@@ -1,0 +1,8 @@
+{
+  "ikm_b64": "aW5wdXQta2V5LW1hdGVyaWFs",
+  "salt_b64": "c2FsdA==",
+  "info_b64": "Y29udGV4dC1pbmZv",
+  "expected_prk_sha256_b64": "1VHD1qfeEQfd1qNwL4fQVfV9hA3V0ZmI9DMPv2gsIzM=",
+  "okm_b64": "1rRr3BjMqAfEU5/O4YBJMhGPcGs3Vp/TrscxnnYn0gY=",
+  "length": 32
+}

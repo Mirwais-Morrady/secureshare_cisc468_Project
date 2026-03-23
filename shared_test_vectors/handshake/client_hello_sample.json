@@ -1,0 +1,27 @@
+{
+  "test_cases": [
+    {
+      "id": "client_hello_1",
+      "description": "Basic client hello message",
+      "message_type": 1,
+      "protocol_version": "1.0",
+      "client_random": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "cipher_suites": [
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_CHACHA20_POLY1305_SHA256"
+      ],
+      "extensions": {
+        "supported_groups": ["secp256r1", "x25519"],
+        "key_share": {
+          "client_shares": [
+            {
+              "group": "x25519",
+              "key_exchange": "8ad4054b3054d0d1587938295c61aea3c7b4b7db7f5f8e9a0b1c2d3e4f5a6b7c"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "test_cases": [
+    {
+      "id": "transcript_hash_1",
+      "description": "Transcript hash with client_hello and server_hello",
+      "messages": [
+        {
+          "type": "ClientHello",
+          "data": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        },
+        {
+          "type": "ServerHello",
+          "data": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+        }
+      ],
+      "hash_algorithm": "SHA-256",
+      "expected_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "transcript_hash_2",
+      "description": "Transcript hash with additional handshake messages",
+      "messages": [
+        {
+          "type": "ClientHello",
+          "data": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        },
+        {
+          "type": "ServerHello",
+          "data": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+        },
+        {
+          "type": "Certificate",
+          "data": "3059301306072a8648ce3804020330080604072a8648ce38040203048220004e80d948f00c34a13a3e7b4e2d8f9f1c2e3b4a5c6d7e8f9a0b1c2d3e4f5a6b7c"
+        },
+        {
+          "type": "ServerFinished",
+          "data": "78e2f9f0f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e0d1c2b3a4f5e6c7d8"
+        }
+      ],
+      "hash_algorithm": "SHA-256",
+      "expected_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"
+    },
+    {
+      "id": "transcript_hash_3",
+      "description": "Transcript hash with SHA-512",
+      "messages": [
+        {
+          "type": "ClientHello",
+          "data": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        },
+        {
+          "type": "ServerHello",
+          "data": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+        }
+      ],
+      "hash_algorithm": "SHA-512",
+      "expected_hash": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+    }
+  ]
+}

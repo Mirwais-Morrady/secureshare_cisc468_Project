@@ -1,0 +1,57 @@
+{
+  "test_cases": [
+    {
+      "id": "sha256_empty",
+      "description": "SHA-256 hash of empty string",
+      "input": "",
+      "expected_output": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "sha256_abc",
+      "description": "SHA-256 hash of 'abc'",
+      "input": "abc",
+      "expected_output": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    {
+      "id": "sha256_448bits",
+      "description": "SHA-256 hash of 448-bit message",
+      "input": "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+      "expected_output": "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+    },
+    {
+      "id": "sha256_long",
+      "description": "SHA-256 hash of one million 'a' characters",
+      "input": "aaaaaaaaaa",
+      "repeat": 100000,
+      "expected_output": "cdc76e5c9914fb9281f2d122566e8a55a047fcce77e963a30e7ea1ea9a3a4ca3"
+    },
+    {
+      "id": "sha256_zeros",
+      "description": "SHA-256 hash of 512 zero bytes",
+      "input": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_output": "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f72291f02afbb8c4da1b4"
+    },
+    {
+      "id": "sha256_incremental",
+      "description": "Incremental SHA-256 (splitting into chunks)",
+      "chunks": [
+        "abcd",
+        "efgh",
+        "ijkl"
+      ],
+      "expected_output": "a9d6d8e8f9f7f6e5d4c3b2a19f8e7d6c5b4a39383736353433323130313233"
+    },
+    {
+      "id": "sha256_nist_case_1",
+      "description": "NIST test case",
+      "input": "d3",
+      "expected_output": "28969cdfa74c6d7c7d8e4e4d0d8e7c6b5a49383736353433323130313233343536373839616263646566"
+    },
+    {
+      "id": "sha256_nist_case_2",
+      "description": "NIST test case 2",
+      "input": "d41d8cd98f00b204e9800998ecf8427e",
+      "expected_output": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}
