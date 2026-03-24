@@ -6,7 +6,7 @@ from threading import Thread
 
 from cli.cli import start_cli
 from crypto.identity import IdentityManager
-from discovery.discovery_listener import start_discovery
+from net.discovery_listener import start_discovery
 from discovery.mdns_service import advertise_service
 from files.share_manager import ShareManager
 from net.connection_handler import handle_connection
