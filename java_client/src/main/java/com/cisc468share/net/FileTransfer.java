@@ -1,6 +1,6 @@
 package com.cisc468share.net;
 
-import com.cisc468share.files.FileChunker;
+import com.cisc468share.files.Chunker;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -12,7 +12,7 @@ public class FileTransfer {
 
         byte[] data = Files.readAllBytes(file.toPath());
 
-        return FileChunker.chunk(data);
+        return Chunker.chunkBytes(data);
 
     }
 }
