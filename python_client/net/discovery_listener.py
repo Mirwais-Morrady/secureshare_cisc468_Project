@@ -24,7 +24,7 @@ class DiscoveryListener:
         peers.append(peer)
 
         print("Discovered peer:", peer)
-        
+
     def update_service(self, zeroconf, service_type, name):
         pass
 
