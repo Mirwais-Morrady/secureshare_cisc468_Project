@@ -219,6 +219,13 @@ Commands: help, exit
 
 ### All Tests (Python + Java)
 
+Make the script executable (if needed):
+
+```bash
+chmod +x run_interop_tests.sh
+```
+Then
+
 ```bash
 ./run_interop_tests.sh
 ```
