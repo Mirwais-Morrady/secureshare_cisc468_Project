@@ -6,7 +6,7 @@ def share_file(ctx, parts):
         print("Usage: share <file>")
         return
 
-    file_path = Path(parts[1])
+    file_path = Path(parts)
 
     if not file_path.exists():
         print("File not found")
