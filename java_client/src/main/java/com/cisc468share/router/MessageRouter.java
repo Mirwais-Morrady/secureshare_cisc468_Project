@@ -205,8 +205,13 @@ public class MessageRouter {
                 return;
             }
 
+            // Save to shared dir so this peer can redistribute it
+            Path savePath = shareManager.getSharedDir().resolve(filename);
+            Files.write(savePath, assembled);
+
             System.out.println("[INFO] '" + filename + "' received (" + assembled.length + " bytes)");
             System.out.println("[INFO] Integrity OK: SHA-256=" + actualSha256.substring(0, 16) + "...");
+            System.out.println("[INFO] Saved to: " + savePath);
 
         } catch (Exception e) {
             System.out.println("[ERROR] Integrity check error: " + e.getMessage());

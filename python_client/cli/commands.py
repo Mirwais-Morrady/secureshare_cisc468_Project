@@ -5,6 +5,7 @@ from .commands_connect import connect_peer
 from .commands_list_files import list_peer_files
 from .commands_send import send_file
 from .commands_request import request_file
+from .commands_fetch import fetch_file
 
 def handle_command(ctx, cmd):
     parts = cmd.strip().split()
@@ -22,6 +23,7 @@ def handle_command(ctx, cmd):
         print("  list-files <peer>            list files shared by a peer (no consent needed)")
         print("  send <peer> <file>           send a file to a peer (they must consent)")
         print("  request <peer> <file>        request a file from a peer (they must consent)")
+        print("  fetch <peer> <file>          fetch from a redistributor and verify against signed manifest")
         print("  list                         list your own shared files")
         print("  share <file>                 add a file to your shared folder")
         print("  exit                         quit program")
@@ -50,6 +52,9 @@ def handle_command(ctx, cmd):
 
     elif command == "request":
         request_file(ctx, cmd)
+
+    elif command == "fetch":
+        fetch_file(ctx, cmd)
 
     elif command in ("exit", "quit"):
         print("Exiting...")
