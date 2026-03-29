@@ -1,11 +1,16 @@
 package com.cisc468share.router;
 
 import com.cisc468share.crypto.SecureSession;
+import com.cisc468share.files.ShareManager;
+import com.cisc468share.net.FileTransfer;
 import com.cisc468share.net.Framing;
 import com.cisc468share.net.SecureChannel;
 import com.cisc468share.protocol.MessageTypes;
 import com.cisc468share.protocol.Serializer;
 
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.net.Socket;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -25,13 +30,15 @@ public class MessageRouter {
     private final SecureChannel channel;
     private final String peerName;
     private final String peerId;
+    private final ShareManager shareManager;
 
     public MessageRouter(Socket socket, SecureSession session,
-                         String peerName, String peerId) {
+                         String peerName, String peerId, ShareManager shareManager) {
         this.socket = socket;
         this.channel = new SecureChannel(socket, session);
         this.peerName = peerName;
         this.peerId = peerId;
+        this.shareManager = shareManager;
     }
 
     /** Main loop: receive, decrypt, dispatch. */
@@ -53,6 +60,7 @@ public class MessageRouter {
 
         switch (type) {
             case MessageTypes.LIST_FILES_REQUEST -> onListFiles();
+            case MessageTypes.GET_FILE_REQUEST    -> onGetFileRequest(msg);
             case MessageTypes.FILE_REQUEST       -> onFileRequest(msg);
             case MessageTypes.FILE_CHUNK         -> onFileChunk(msg);
             case MessageTypes.FILE_TRANSFER_COMPLETE -> onTransferComplete(msg);
@@ -86,6 +94,41 @@ public class MessageRouter {
         currentFile = filename;
         chunkBuffer.clear();
         sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_ACCEPT, "file", filename));
+    }
+
+    private void onGetFileRequest(Map<String, Object> msg) {
+        String filename = (String) msg.get("file");
+        Path filePath = shareManager.getFilePath(filename);
+        if (!Files.exists(filePath)) {
+            sendMsg(Map.of("type", MessageTypes.ERROR, "message", "File not found: " + filename));
+            return;
+        }
+        try {
+            byte[] data = Files.readAllBytes(filePath);
+            List<byte[]> chunks = FileTransfer.chunkFile(filePath.toFile());
+            for (int i = 0; i < chunks.size(); i++) {
+                sendMsg(Map.of(
+                    "type", MessageTypes.FILE_CHUNK,
+                    "file", filename,
+                    "index", i,
+                    "data", bytesToHex(chunks.get(i))
+                ));
+            }
+            String sha256 = computeSha256Hex(data);
+            sendMsg(Map.of(
+                "type", MessageTypes.FILE_TRANSFER_COMPLETE,
+                "file", filename,
+                "sha256_hex", sha256
+            ));
+            System.out.println("[INFO] Sent file '" + filename + "' to peer.");
+        } catch (Exception e) {
+            sendMsg(Map.of("type", MessageTypes.ERROR, "message", "Failed to send file: " + e.getMessage()));
+        }
+    }
+    private static String computeSha256Hex(byte[] data) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] digest = md.digest(data);
+        return bytesToHex(digest);
     }
 
     private void onFileChunk(Map<String, Object> msg) {
