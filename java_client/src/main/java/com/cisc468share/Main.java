@@ -8,8 +8,6 @@ public class Main {
 
         try {
 
-            System.out.println("Secure Share Java Client Starting...");
-
             RuntimeLauncher runtime = new RuntimeLauncher();
 
             runtime.run();

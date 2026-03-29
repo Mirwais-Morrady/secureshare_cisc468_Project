@@ -45,7 +45,16 @@ def handle_connection(conn, addr, identity=None, ctx=None):
         session, client_hello = execute_server_handshake(conn, identity)
         peer_id = client_hello.get("peer_id", "unknown")
         peer_name = client_hello.get("peer_name", "unknown")
-        print(f"[NET] Authenticated: {peer_name} ({peer_id[:16]}...)")
+        print(f"[AUTH] Handshake complete.")
+        print(f"  Peer name       : {peer_name}")
+        print(f"  Peer fingerprint: {peer_id}")
+        print(f"  Session ID      : {session.session_id}")
+        print()
+        print(f"[AUTH] Mutual authentication successful.")
+        print(f"  - We verified {peer_name}'s RSA-PSS signature.")
+        print(f"  - {peer_name} verified our RSA-PSS signature.")
+        print(f"  - Session keys derived via ephemeral Diffie-Hellman (new keys, never stored).")
+        print(f"  - All further communication is AES-256-GCM encrypted.")
 
         # Save verified contact
         if ctx is not None and "contacts_store" in ctx:

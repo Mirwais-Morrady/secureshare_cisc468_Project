@@ -52,7 +52,9 @@ public class MessageRouter {
                 Map<String, Object> msg = channel.receive();
                 dispatch(msg);
             } catch (Exception e) {
-                System.out.println("[NET] Connection closed: " + peerName);
+                String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                System.out.println("[NET] Connection closed: " + peerName + " — " + reason);
+                e.printStackTrace();
                 break;
             }
         }

@@ -44,8 +44,6 @@ public class MdnsService {
 
         jmdns.registerService(serviceInfo);
 
-        System.out.println("mDNS service registered: " + name);
-
         jmdns.addServiceListener("_cisc468share._tcp.local.", new ServiceListener() {
             @Override
             public void serviceAdded(ServiceEvent event) {
@@ -62,12 +60,21 @@ public class MdnsService {
             public void serviceResolved(ServiceEvent event) {
                 ServiceInfo info = event.getInfo();
                 String name = event.getName();
-                String address = info.getInetAddresses().length > 0 ? info.getInetAddresses()[0].getHostAddress() : "unknown";
+                String address = info.getInetAddresses().length > 0
+                        ? info.getInetAddresses()[0].getHostAddress() : "unknown";
                 int port = info.getPort();
                 PeerInfo peer = new PeerInfo(name, address, port);
-                // Remove any previous entry with the same name
+                // Only print if this is a genuinely new or changed entry
+                boolean isNew = discoveredPeers.stream().noneMatch(
+                        p -> p.name.equals(name) && p.address.equals(address) && p.port == port);
                 discoveredPeers.removeIf(p -> p.name.equals(name));
                 discoveredPeers.add(peer);
+                if (isNew) {
+                    // Match Python's "Discovered peer: {...}" format
+                    System.out.println("Discovered peer: {'name': '" + name
+                            + "._cisc468share._tcp.local.', 'address': '" + address
+                            + "', 'port': " + port + "}");
+                }
             }
         });
     }

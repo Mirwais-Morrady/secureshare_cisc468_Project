@@ -6,22 +6,19 @@ import java.net.Socket;
 
 public class TcpServer {
 
-    private final int port;
+    private final ServerSocket serverSocket;
     private final ConnectionHandler handler;
 
-    public TcpServer(int port, ConnectionHandler handler) {
-        this.port = port;
+    /** Use a pre-bound ServerSocket — no race condition between port selection and binding. */
+    public TcpServer(ServerSocket serverSocket, ConnectionHandler handler) {
+        this.serverSocket = serverSocket;
         this.handler = handler;
     }
 
     public void start() throws IOException {
-
-        ServerSocket server = new ServerSocket(port);
-
-        System.out.println("TCP server listening on port " + port);
-
+        System.out.println("TCP server listening on 0.0.0.0:" + serverSocket.getLocalPort());
         while (true) {
-            Socket socket = server.accept();
+            Socket socket = serverSocket.accept();
             new Thread(() -> handler.handle(socket)).start();
         }
     }

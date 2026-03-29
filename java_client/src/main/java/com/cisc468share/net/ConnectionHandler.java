@@ -1,12 +1,17 @@
 package com.cisc468share.net;
 
 import com.cisc468share.crypto.HandshakeManager;
-import com.cisc468share.files.ShareManager;
+import com.cisc468share.crypto.HashUtil;
 import com.cisc468share.crypto.SecureSession;
+import com.cisc468share.files.ShareManager;
 import com.cisc468share.net.ConsentManager;
 import com.cisc468share.router.MessageRouter;
+import com.cisc468share.storage.ContactsStore;
 
 import java.net.Socket;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Handles an incoming TCP connection:
@@ -19,11 +24,14 @@ public class ConnectionHandler {
     private final HandshakeManager handshakeManager;
     private final ShareManager shareManager;
     private final ConsentManager consentManager;
+    private final ContactsStore contactsStore;
 
-    public ConnectionHandler(HandshakeManager handshakeManager, ShareManager shareManager, ConsentManager consentManager) {
+    public ConnectionHandler(HandshakeManager handshakeManager, ShareManager shareManager,
+                             ConsentManager consentManager, ContactsStore contactsStore) {
         this.handshakeManager = handshakeManager;
         this.shareManager = shareManager;
         this.consentManager = consentManager;
+        this.contactsStore = contactsStore;
     }
 
     /** Construct without identity — plain echo mode for testing. */
@@ -31,22 +39,43 @@ public class ConnectionHandler {
         this.handshakeManager = null;
         this.shareManager = null;
         this.consentManager = null;
+        this.contactsStore = null;
     }
 
     public void handle(Socket socket) {
         System.out.println("[NET] Connection from " + socket.getRemoteSocketAddress());
 
         if (handshakeManager == null) {
-            // Plain mode (compatibility / testing)
             handlePlain(socket);
             return;
         }
 
         try {
-            SecureSession session = handshakeManager.executeServerHandshake(socket);
-            System.out.println("[NET] Handshake complete — session: " + session.sessionId);
+            HandshakeManager.HandshakeResult result =
+                    handshakeManager.executeServerHandshakeEx(socket);
+            SecureSession session = result.session;
+            System.out.println("[AUTH] Handshake complete.");
+            System.out.println("  Peer name       : " + result.remotePeerName);
+            System.out.println("  Peer fingerprint: " + result.remotePeerId);
+            System.out.println("  Session ID      : " + session.sessionId);
+            System.out.println();
+            System.out.println("[AUTH] Mutual authentication successful.");
+            System.out.println("  - We verified " + result.remotePeerName + "'s RSA-PSS signature.");
+            System.out.println("  - " + result.remotePeerName + " verified our RSA-PSS signature.");
+            System.out.println("  - Session keys derived via ephemeral Diffie-Hellman (new keys, never stored).");
+            System.out.println("  - All further communication is AES-256-GCM encrypted.");
 
-            MessageRouter router = new MessageRouter(socket, session, "peer", "unknown", shareManager, consentManager);
+            // Save the connecting peer's public key to contacts
+            if (contactsStore != null && result.remotePublicKeyDer != null) {
+                Map<String, Object> info = new LinkedHashMap<>();
+                info.put("peer_name", result.remotePeerName);
+                info.put("rsa_public_key_der_b64",
+                        Base64.getEncoder().encodeToString(result.remotePublicKeyDer));
+                contactsStore.add(result.remotePeerId, info);
+            }
+
+            MessageRouter router = new MessageRouter(socket, session,
+                    result.remotePeerName, result.remotePeerId, shareManager, consentManager);
             router.run();
 
         } catch (Exception e) {

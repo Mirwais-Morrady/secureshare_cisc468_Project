@@ -1,52 +1,64 @@
 package com.cisc468share.storage;
 
+import com.cisc468share.protocol.CanonicalJson;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
- * Manages persistent contact storage.
+ * JSON-backed contacts storage keyed by peer_id.
+ * Persists to data/contacts.json.
  */
 public class ContactsStore {
-    private String storagePath;
-    
-    public ContactsStore(String storagePath) {
-        this.storagePath = storagePath;
+
+    private final Path path;
+    private final ObjectMapper mapper = CanonicalJson.mapper();
+
+    public ContactsStore(Path path) {
+        this.path = path;
     }
-    
-    /**
-     * Add a contact.
-     * 
-     * @param contactId The contact identifier
-     * @param contactInfo Information about the contact
-     */
-    public void addContact(String contactId, java.util.Map<String, Object> contactInfo) {
-        // TODO: Implement contact addition
+
+    /** Load all contacts from disk. */
+    public Map<String, Map<String, Object>> load() {
+        if (!Files.exists(path)) return new LinkedHashMap<>();
+        try {
+            return mapper.readValue(path.toFile(),
+                    new TypeReference<Map<String, Map<String, Object>>>() {});
+        } catch (Exception e) {
+            return new LinkedHashMap<>();
+        }
     }
-    
-    /**
-     * Get contact information.
-     * 
-     * @param contactId The contact identifier
-     * @return The contact information
-     */
-    public java.util.Map<String, Object> getContact(String contactId) {
-        // TODO: Implement contact retrieval
-        return null;
+
+    /** Save the full contacts map to disk. */
+    public void save(Map<String, Map<String, Object>> contacts) {
+        try {
+            Files.createDirectories(path.getParent());
+            mapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), contacts);
+        } catch (Exception e) {
+            System.out.println("[ERROR] Failed to save contacts: " + e.getMessage());
+        }
     }
-    
-    /**
-     * List all contacts.
-     * 
-     * @return List of contact IDs
-     */
-    public java.util.List<String> listContacts() {
-        // TODO: Implement contact listing
-        return null;
+
+    /** Get a single contact by peer_id, or null. */
+    public Map<String, Object> get(String peerId) {
+        return load().get(peerId);
     }
-    
-    /**
-     * Remove a contact.
-     * 
-     * @param contactId The contact identifier
-     */
-    public void removeContact(String contactId) {
-        // TODO: Implement contact removal
+
+    /** Add or update a single contact entry. */
+    public void add(String peerId, Map<String, Object> info) {
+        Map<String, Map<String, Object>> all = load();
+        all.put(peerId, info);
+        save(all);
+    }
+
+    /** Remove a contact entry. */
+    public void remove(String peerId) {
+        Map<String, Map<String, Object>> all = load();
+        all.remove(peerId);
+        save(all);
     }
 }
