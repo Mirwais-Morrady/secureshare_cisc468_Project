@@ -1,6 +1,7 @@
 from .commands_list import list_files
 from .commands_peers import peers
 from .commands_share import share_file
+from .commands_connect import connect_peer
 
 def handle_command(ctx, cmd):
     parts = cmd.strip().split()
@@ -12,11 +13,12 @@ def handle_command(ctx, cmd):
 
     if command == "help":
         print("Commands:")
-        print("  help          show commands")
-        print("  peers         list discovered peers")
-        print("  exit          quit program")
-        print("  share <file>  share a file")
-        print("  list          list shared files")
+        print("  help                    show commands")
+        print("  peers                   list discovered peers on the network")
+        print("  connect <peer>          connect and authenticate with a peer")
+        print("  list                    list your own shared files")
+        print("  share <file>            add a file to your shared folder")
+        print("  exit                    quit program")
     elif command == "list":
         list_files(ctx)
 
@@ -30,6 +32,9 @@ def handle_command(ctx, cmd):
 
     elif command == "peers":
         peers(ctx)
+
+    elif command == "connect":
+        connect_peer(ctx, cmd)
 
     elif command in ("exit", "quit"):
         print("Exiting...")
