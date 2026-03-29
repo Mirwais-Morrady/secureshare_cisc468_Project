@@ -1,6 +1,7 @@
 """
 Connection handler: performs the full handshake then routes encrypted messages.
 """
+from crypto.key_migration import flush_pending_migrations
 from net.framing import decode_frame, FramingError
 from protocol.serializer import json_loads_bytes
 
@@ -45,6 +46,7 @@ def handle_connection(conn, addr, identity=None, ctx=None):
         session, client_hello = execute_server_handshake(conn, identity)
         peer_id = client_hello.get("peer_id", "unknown")
         peer_name = client_hello.get("peer_name", "unknown")
+        inbound_entry = None
         print(f"[AUTH] Handshake complete.")
         print(f"  Peer name       : {peer_name}")
         print(f"  Peer fingerprint: {peer_id}")
@@ -65,6 +67,25 @@ def handle_connection(conn, addr, identity=None, ctx=None):
             }
             ctx["contacts_store"].save(contacts)
 
+        if ctx is not None:
+            inbound_connections = ctx.setdefault("inbound_connections", {})
+            inbound_entry = {
+                "sock": conn,
+                "session": session,
+                "peer_id": peer_id,
+                "peer_name": peer_name,
+                "address": addr[0] if addr else None,
+                "port": addr[1] if addr else None,
+            }
+            inbound_connections[peer_name] = inbound_entry
+
+        # If this peer was offline during a previous rotation, deliver the
+        # pending migration notice now that a fresh secure session exists.
+        try:
+            flush_pending_migrations(ctx, peer_id, conn, session, peer_name=peer_name)
+        except Exception as e:
+            print(f"[WARN] Could not deliver pending KEY_MIGRATION to '{peer_name}': {e}")
+
         # Route all subsequent messages through the MessageRouter
         from net.router import MessageRouter
         router = MessageRouter(ctx, conn, session, peer_name, peer_id)
@@ -73,6 +94,11 @@ def handle_connection(conn, addr, identity=None, ctx=None):
     except Exception as e:
         print(f"[ERROR] Connection from {addr} failed: {e}")
     finally:
+        if ctx is not None:
+            inbound_connections = ctx.get("inbound_connections", {})
+            existing = inbound_connections.get(locals().get("peer_name", ""))
+            if existing is not None and existing.get("sock") is conn:
+                inbound_connections.pop(locals().get("peer_name", ""), None)
         try:
             conn.close()
         except Exception:

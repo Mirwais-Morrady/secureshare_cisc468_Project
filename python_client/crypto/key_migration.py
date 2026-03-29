@@ -8,9 +8,17 @@ The migration message is signed with BOTH the old key (proving the message
 comes from the legitimate old identity) and the new key (proving ownership
 of the new key). Contacts verify using the old key they already trust.
 """
+
 import base64
+from pathlib import Path
+
 from crypto.identity import IdentityManager
+from crypto.identity import PRIVATE_KEY_FILE, PUBLIC_KEY_FILE
 from protocol.canonical_json import canonical_json_bytes
+from crypto.session import encrypt
+from net.framing import encode_frame
+from protocol.serializer import json_dumps_bytes
+from protocol.message_types import KEY_MIGRATION
 
 
 def build_key_migration_message(old_identity, new_identity):
@@ -98,10 +106,36 @@ def generate_new_identity(identity_dir, peer_name):
     Returns:
         Identity: The new identity object (not yet saved as primary)
     """
-    from pathlib import Path
-    from crypto.identity import IdentityManager
-
     new_dir = Path(identity_dir) / "new"
     new_dir.mkdir(parents=True, exist_ok=True)
+
+    # A new rotation must produce a fresh key pair even if a previous
+    # staged identity already exists in data/identity/new/.
+    for key_file in (PRIVATE_KEY_FILE, PUBLIC_KEY_FILE):
+        staged = new_dir / key_file
+        if staged.exists():
+            staged.unlink()
+
     mgr = IdentityManager(new_dir)
     return mgr.load_or_create_identity(peer_name)
+
+
+def send_key_migration(sock, session, migration_msg):
+    plaintext = json_dumps_bytes(migration_msg)
+    envelope = encrypt(session, KEY_MIGRATION, plaintext)
+    sock.sendall(encode_frame(json_dumps_bytes(envelope)))
+
+
+def flush_pending_migrations(ctx, peer_id: str, sock, session, peer_name: str = "unknown"):
+    store = ctx.get("pending_migration_store") if ctx else None
+    if store is None:
+        return 0
+
+    sent = 0
+    for notice in store.get_pending_for_peer(peer_id):
+        send_key_migration(sock, session, notice["message"])
+        store.mark_delivered(notice["id"], peer_id)
+        sent += 1
+        print(f"[ROTATE-KEY] Delivered pending KEY_MIGRATION to '{peer_name}'")
+
+    return sent

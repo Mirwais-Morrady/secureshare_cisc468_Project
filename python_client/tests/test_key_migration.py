@@ -17,12 +17,13 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
 from crypto.identity import IdentityManager
+from storage.pending_migration_store import PendingMigrationStore
+
 from crypto.key_migration import (
     build_key_migration_message,
     verify_key_migration,
     generate_new_identity,
 )
-
 
 class TestKeyMigration:
 
@@ -135,3 +136,27 @@ class TestKeyMigration:
         old_id = IdentityManager(tmp_path).load_or_create_identity("peer")
         new_id = generate_new_identity(tmp_path, "peer")
         assert old_id.peer_id != new_id.peer_id
+
+    def test_generate_new_identity_replaces_stale_staged_keys(self, tmp_path):
+        first_new = generate_new_identity(tmp_path, "peer")
+        second_new = generate_new_identity(tmp_path, "peer")
+        assert first_new.peer_id != second_new.peer_id
+
+    def test_pending_migration_store_tracks_undelivered_contacts(self, tmp_path):
+        store = PendingMigrationStore(tmp_path / "pending_migrations.json")
+        notice_id = "old->new"
+        message = {"type": "KEY_MIGRATION", "new_peer_id": "new"}
+
+        store.queue_notice(notice_id, message, ["peer-a", "peer-b", "peer-a"])
+
+        pending_a = store.get_pending_for_peer("peer-a")
+        pending_b = store.get_pending_for_peer("peer-b")
+        assert len(pending_a) == 1
+        assert len(pending_b) == 1
+
+        store.mark_delivered(notice_id, "peer-a")
+        assert store.get_pending_for_peer("peer-a") == []
+        assert len(store.get_pending_for_peer("peer-b")) == 1
+
+        store.mark_delivered(notice_id, "peer-b")
+        assert store.load()["notices"] == []

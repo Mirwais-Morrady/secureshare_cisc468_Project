@@ -1,5 +1,6 @@
 package com.cisc468share.router;
 
+import com.cisc468share.crypto.KeyMigrationUtil;
 import com.cisc468share.crypto.SecureSession;
 import com.cisc468share.files.ShareManager;
 import com.cisc468share.net.ConsentManager;
@@ -8,6 +9,7 @@ import com.cisc468share.net.Framing;
 import com.cisc468share.net.SecureChannel;
 import com.cisc468share.protocol.MessageTypes;
 import com.cisc468share.protocol.Serializer;
+import com.cisc468share.storage.ContactsStore;
 
 
 import java.nio.file.Files;
@@ -33,16 +35,19 @@ public class MessageRouter {
     private final String peerId;
     private final ShareManager shareManager;
     private final ConsentManager consentManager;
+    private final ContactsStore contactsStore;
 
     public MessageRouter(Socket socket, SecureSession session,
                          String peerName, String peerId,
-                         ShareManager shareManager, ConsentManager consentManager) {
+                         ShareManager shareManager, ConsentManager consentManager,
+                         ContactsStore contactsStore) {
         this.socket = socket;
         this.channel = new SecureChannel(socket, session);
         this.peerName = peerName;
         this.peerId = peerId;
         this.shareManager = shareManager;
         this.consentManager = consentManager;
+        this.contactsStore = contactsStore;
     }
 
     /** Main loop: receive, decrypt, dispatch. */
@@ -54,7 +59,6 @@ public class MessageRouter {
             } catch (Exception e) {
                 String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                 System.out.println("[NET] Connection closed: " + peerName + " — " + reason);
-                e.printStackTrace();
                 break;
             }
         }
@@ -223,8 +227,9 @@ public class MessageRouter {
     private void onKeyMigration(Map<String, Object> msg) {
         String oldPeerId = (String) msg.getOrDefault("old_peer_id", "");
         System.out.println("[INFO] Key migration received from peer: " + oldPeerId.substring(0, Math.min(16, oldPeerId.length())) + "...");
-        System.out.println("[INFO] Contact '" + msg.get("new_peer_name") + "' has migrated to a new key.");
-        System.out.println("[INFO] Manual contact verification recommended before re-authentication.");
+        if (!KeyMigrationUtil.applyMigrationMessage(msg, contactsStore)) {
+            System.out.println("[INFO] Manual contact verification recommended before re-authentication.");
+        }
     }
 
     private void sendMsg(Map<String, Object> msg) {

@@ -2,6 +2,7 @@ package com.cisc468share.cli;
 
 import com.cisc468share.crypto.HandshakeManager;
 import com.cisc468share.crypto.IdentityManager;
+import com.cisc468share.crypto.KeyMigrationUtil;
 import com.cisc468share.crypto.ManifestManager;
 import com.cisc468share.crypto.HashUtil;
 import com.cisc468share.discovery.MdnsService;
@@ -17,6 +18,8 @@ import com.cisc468share.storage.ContactsStore;
 import com.cisc468share.storage.ManifestStore;
 
 import java.net.Socket;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -46,12 +49,17 @@ public class CommandLine {
         final SecureChannel channel;
         final String peerId;
         final String peerName;
+        final BlockingQueue<Map<String, Object>> inbox = new LinkedBlockingQueue<>();
+        volatile boolean closed;
+        volatile String closeReason;
 
         Conn(Socket socket, SecureChannel channel, String peerId, String peerName) {
             this.socket = socket;
             this.channel = channel;
             this.peerId = peerId;
             this.peerName = peerName;
+            this.closed = false;
+            this.closeReason = null;
         }
     }
 
@@ -302,7 +310,9 @@ public class CommandLine {
             contactsStore.add(result.remotePeerId, contactInfo);
 
             SecureChannel channel = new SecureChannel(sock, result.session);
-            connections.put(targetName, new Conn(sock, channel, result.remotePeerId, result.remotePeerName));
+                Conn conn = new Conn(sock, channel, result.remotePeerId, result.remotePeerName);
+                connections.put(targetName, conn);
+                startConnectionReader(targetName, conn);
 
             System.out.println();
             System.out.println("[OK] Connected to '" + targetName + "'. You can now run:");
@@ -328,7 +338,7 @@ public class CommandLine {
             conn.channel.send(MessageTypes.LIST_FILES_REQUEST,
                     Map.of("type", MessageTypes.LIST_FILES_REQUEST));
 
-            Map<String, Object> resp = conn.channel.receive();
+            Map<String, Object> resp = waitForMessage(conn);
             if (!MessageTypes.LIST_FILES_RESPONSE.equals(resp.get("type"))) {
                 System.out.println("[ERROR] Unexpected response: " + resp.get("type")); return;
             }
@@ -377,7 +387,7 @@ public class CommandLine {
                     "file", filename,
                     "filesize", filesize));
 
-            Map<String, Object> resp = conn.channel.receive();
+                Map<String, Object> resp = waitForMessage(conn);
             String respType = (String) resp.get("type");
 
             if (MessageTypes.FILE_REQUEST_DENY.equals(respType)) {
@@ -440,7 +450,7 @@ public class CommandLine {
             conn.channel.send(MessageTypes.GET_FILE_REQUEST,
                     Map.of("type", MessageTypes.GET_FILE_REQUEST, "file", filename));
 
-            Map<String, Object> resp = conn.channel.receive();
+            Map<String, Object> resp = waitForMessage(conn);
             String respType = (String) resp.get("type");
 
             if (MessageTypes.FILE_REQUEST_DENY.equals(respType)) {
@@ -525,7 +535,7 @@ public class CommandLine {
             conn.channel.send(MessageTypes.GET_FILE_REQUEST,
                     Map.of("type", MessageTypes.GET_FILE_REQUEST, "file", filename));
 
-            Map<String, Object> resp = conn.channel.receive();
+            Map<String, Object> resp = waitForMessage(conn);
             String respType = (String) resp.get("type");
 
             if (MessageTypes.FILE_REQUEST_DENY.equals(respType)) {
@@ -650,7 +660,7 @@ public class CommandLine {
         TreeMap<Integer, byte[]> chunkBuffer = new TreeMap<>();
 
         while (true) {
-            Map<String, Object> msg = conn.channel.receive();
+            Map<String, Object> msg = waitForMessage(conn);
             String t = (String) msg.get("type");
 
             if (MessageTypes.FILE_CHUNK.equals(t)) {
@@ -758,6 +768,55 @@ public class CommandLine {
     private static String shortName(String fullName) {
         int dot = fullName.indexOf('.');
         return dot >= 0 ? fullName.substring(0, dot) : fullName;
+    }
+
+    private void startConnectionReader(String targetName, Conn conn) {
+        Thread reader = new Thread(() -> {
+            while (!conn.closed) {
+                try {
+                    Map<String, Object> msg = conn.channel.receive();
+                    String type = (String) msg.get("type");
+
+                    if (MessageTypes.KEY_MIGRATION.equals(type)) {
+                        String oldPeerId = (String) msg.getOrDefault("old_peer_id", "");
+                        System.out.println("[INFO] Key migration received from peer: "
+                                + oldPeerId.substring(0, Math.min(16, oldPeerId.length())) + "...");
+                        if (!KeyMigrationUtil.applyMigrationMessage(msg, contactsStore)) {
+                            System.out.println("[INFO] Manual contact verification recommended before re-authentication.");
+                        }
+                        continue;
+                    }
+
+                    conn.inbox.put(msg);
+                } catch (Exception e) {
+                    conn.closed = true;
+                    conn.closeReason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+
+                    LinkedHashMap<String, Object> closedMsg = new LinkedHashMap<>();
+                    closedMsg.put("type", MessageTypes.ERROR);
+                    closedMsg.put("message", "Connection closed: " + conn.closeReason);
+                    conn.inbox.offer(closedMsg);
+
+                    Conn current = connections.get(targetName);
+                    if (current == conn) {
+                        connections.remove(targetName);
+                    }
+                    System.out.println("[NET] Connection closed: " + conn.peerName + " — " + conn.closeReason);
+                    break;
+                }
+            }
+        }, "secure-share-reader-" + targetName);
+        reader.setDaemon(true);
+        reader.start();
+    }
+
+    private Map<String, Object> waitForMessage(Conn conn) throws Exception {
+        Map<String, Object> msg = conn.inbox.take();
+        String type = (String) msg.get("type");
+        if (MessageTypes.ERROR.equals(type) && conn.closed) {
+            throw new IllegalStateException((String) msg.getOrDefault("message", "connection closed"));
+        }
+        return msg;
     }
 
     private static String computeSha256Hex(byte[] data) throws Exception {

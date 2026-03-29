@@ -18,6 +18,7 @@ from storage.contacts_store import ContactsStore
 from storage.manifest_store import ManifestStore
 from storage.vault_store import VaultStore
 from net.consent_manager import ConsentManager
+from storage.pending_migration_store import PendingMigrationStore
 
 def get_available_port():
     """Find an available port"""
@@ -36,7 +37,10 @@ def build_context(base_dir: Path, identity, vault_password: str = "changeme") ->
     ctx["manifest_store"] = ManifestStore(base_dir / "data" / "manifests.json")
     ctx["vault_store"] = VaultStore(base_dir / "data" / "vault", password=vault_password)
     ctx["consent_manager"] = ConsentManager()
+    ctx["connections"] = {}
+    ctx["inbound_connections"] = {}
     ctx["peers"] = []
+    ctx["pending_migration_store"] = PendingMigrationStore(base_dir / "data" / "pending_migrations.json")
     return ctx
 
 

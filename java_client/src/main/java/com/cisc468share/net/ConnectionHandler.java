@@ -75,7 +75,8 @@ public class ConnectionHandler {
             }
 
             MessageRouter router = new MessageRouter(socket, session,
-                    result.remotePeerName, result.remotePeerId, shareManager, consentManager);
+                    result.remotePeerName, result.remotePeerId,
+                    shareManager, consentManager, contactsStore);
             router.run();
 
         } catch (Exception e) {

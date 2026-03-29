@@ -1,6 +1,7 @@
 import socket as _socket
 from net.handshake_client import execute_client_handshake
 from net.tcp_client import connect
+from crypto.key_migration import flush_pending_migrations
 
 
 def _find_peer(ctx, name):
@@ -107,6 +108,10 @@ def connect_peer(ctx, parts):
         "address":   address,
         "port":      port,
     }
+    try:
+        flush_pending_migrations(ctx, remote_peer_id, sock, session, peer_name=peer_name)
+    except Exception as e:
+        print(f"[WARN] Could not deliver pending KEY_MIGRATION to '{peer_name}': {e}")
 
     print()
     print(f"[OK] Connected to '{peer_name}'. You can now run:")
