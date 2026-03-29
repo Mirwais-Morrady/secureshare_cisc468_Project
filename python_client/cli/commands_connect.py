@@ -91,11 +91,16 @@ def connect_peer(ctx, parts):
     print(f"  - Session keys derived via ephemeral Diffie-Hellman (new keys, never stored).")
     print(f"  - All further communication is AES-256-GCM encrypted.")
 
+    # One shared stream per connection — prevents multiple makefile() buffers
+    # from stealing each other's bytes off the same socket.
+    stream = sock.makefile("rb")
+
     # Store the active connection for reuse by other commands
     if "connections" not in ctx:
         ctx["connections"] = {}
     ctx["connections"][peer_name] = {
         "sock":      sock,
+        "stream":    stream,
         "session":   session,
         "peer_id":   remote_peer_id,
         "peer_name": remote_peer_name,

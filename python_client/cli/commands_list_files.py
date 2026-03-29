@@ -11,8 +11,7 @@ def _send(sock, session, msg):
     sock.sendall(encode_frame(json_dumps_bytes(envelope)))
 
 
-def _recv(sock, session):
-    stream = sock.makefile("rb")
+def _recv(stream, session):
     raw = decode_frame(stream)
     envelope = json_loads_bytes(raw)
     plaintext = decrypt(session, envelope)
@@ -46,6 +45,7 @@ def list_peer_files(ctx, cmd):
             return  # connect_peer already printed the error
 
     sock    = conn["sock"]
+    stream  = conn["stream"]
     session = conn["session"]
 
     print(f"[LIST-FILES] Requesting file list from '{peer_name}' ...")
@@ -54,7 +54,7 @@ def list_peer_files(ctx, cmd):
 
     try:
         _send(sock, session, {"type": LIST_FILES_REQUEST})
-        response = _recv(sock, session)
+        response = _recv(stream, session)
     except Exception as e:
         print(f"[ERROR] Lost connection to '{peer_name}': {e}")
         ctx["connections"].pop(peer_name, None)

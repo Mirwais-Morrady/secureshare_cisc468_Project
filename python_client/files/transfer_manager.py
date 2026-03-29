@@ -23,11 +23,11 @@ from protocol.serializer import json_dumps_bytes, json_loads_bytes
 class TransferManager:
     """Manages outgoing file transfers over an established SecureSession."""
 
-    def __init__(self, conn, session, peer_name: str):
+    def __init__(self, conn, session, peer_name: str, stream=None):
         self.conn = conn
         self.session = session
         self.peer_name = peer_name
-        self._stream = conn.makefile("rb")
+        self._stream = stream if stream is not None else conn.makefile("rb")
 
     def send_file(self, file_path: Path) -> bool:
         """
