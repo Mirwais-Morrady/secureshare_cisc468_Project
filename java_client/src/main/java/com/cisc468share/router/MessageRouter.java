@@ -111,10 +111,32 @@ public class MessageRouter {
     private void onGetFileRequest(Map<String, Object> msg) {
         String filename = (String) msg.get("file");
         Path filePath = shareManager.getFilePath(filename);
+
         if (!Files.exists(filePath)) {
-            sendMsg(Map.of("type", MessageTypes.ERROR, "message", "File not found: " + filename));
+            System.out.println("[ERROR] Requested file not found: " + filename);
+            sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_DENY, "file", filename,
+                           "reason", "File not found: " + filename));
             return;
         }
+
+        // Ask for consent before sending
+        boolean accepted = false;
+        try {
+            accepted = consentManager.request(peerName, filename,
+                    Files.size(filePath));
+        } catch (Exception e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+
+        if (!accepted) {
+            sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_DENY, "file", filename,
+                           "reason", "User declined"));
+            return;
+        }
+
+        // Accepted — send FILE_REQUEST_ACCEPT then the file
+        sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_ACCEPT, "file", filename));
         try {
             byte[] data = Files.readAllBytes(filePath);
             List<byte[]> chunks = FileTransfer.chunkFile(filePath.toFile());
@@ -132,9 +154,10 @@ public class MessageRouter {
                 "file", filename,
                 "sha256_hex", sha256
             ));
-            System.out.println("[INFO] Sent file '" + filename + "' to peer.");
+            System.out.println("[INFO] Sent '" + filename + "' to " + peerName);
         } catch (Exception e) {
-            sendMsg(Map.of("type", MessageTypes.ERROR, "message", "Failed to send file: " + e.getMessage()));
+            sendMsg(Map.of("type", MessageTypes.ERROR, "message",
+                           "Failed to send file: " + e.getMessage()));
         }
     }
     private static String computeSha256Hex(byte[] data) throws Exception {

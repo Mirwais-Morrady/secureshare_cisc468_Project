@@ -82,8 +82,8 @@ public class CommandLine {
         try {
             ConsentManager.ConsentRequest req = consentManager.popPending();
             System.out.println();
-            System.out.println("[INCOMING FILE REQUEST]");
-            System.out.println("  From : " + req.peerName);
+            System.out.println("[CONSENT REQUIRED]");
+            System.out.println("  Peer : " + req.peerName);
             System.out.println("  File : " + req.filename);
             System.out.println("  Size : " + req.filesize + " bytes");
             System.out.print("  Accept? [y/N]: ");
