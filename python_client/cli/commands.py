@@ -6,6 +6,7 @@ from .commands_list_files import list_peer_files
 from .commands_send import send_file
 from .commands_request import request_file
 from .commands_fetch import fetch_file
+from .commands_rotate_key import rotate_key
 
 def handle_command(ctx, cmd):
     parts = cmd.strip().split()
@@ -26,6 +27,7 @@ def handle_command(ctx, cmd):
         print("  fetch <peer> <file>          fetch from a redistributor and verify against signed manifest")
         print("  list                         list your own shared files")
         print("  share <file>                 add a file to your shared folder")
+        print("  rotate-key                   generate new RSA key pair and notify connected peers")
         print("  exit                         quit program")
     elif command == "list":
         list_files(ctx)
@@ -55,6 +57,9 @@ def handle_command(ctx, cmd):
 
     elif command == "fetch":
         fetch_file(ctx, cmd)
+
+    elif command == "rotate-key":
+        rotate_key(ctx, cmd)
 
     elif command in ("exit", "quit"):
         print("Exiting...")
