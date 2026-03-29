@@ -87,7 +87,9 @@ class MessageRouter:
         filesize = msg.get("filesize", 0)
 
         from net.consent_handler import prompt_receive_consent
-        accepted = prompt_receive_consent(self.peer_name, filename, filesize)
+        consent_mgr = self.ctx.get("consent_manager") if self.ctx else None
+        accepted = prompt_receive_consent(self.peer_name, filename, filesize,
+                                          consent_manager=consent_mgr)
 
         if accepted:
             self._send({"type": FILE_REQUEST_ACCEPT, "file": filename})

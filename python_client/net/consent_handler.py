@@ -6,18 +6,19 @@ consent before the transfer begins. This module provides the prompt logic.
 """
 
 
-def prompt_receive_consent(peer_name: str, filename: str, filesize: int) -> bool:
+def prompt_receive_consent(peer_name: str, filename: str, filesize: int,
+                           consent_manager=None) -> bool:
     """
     Prompt the user to accept or deny an incoming file transfer request.
 
-    Args:
-        peer_name: Name of the peer requesting to send
-        filename: The filename being offered
-        filesize: File size in bytes
-
-    Returns:
-        bool: True if user accepted, False if denied
+    If a ConsentManager is provided the request is queued so the main CLI
+    thread handles the prompt (avoiding two threads fighting over stdin).
+    Falls back to a direct input() call if no manager is available.
     """
+    if consent_manager is not None:
+        return consent_manager.request(peer_name, filename, filesize)
+
+    # Fallback: direct prompt (only safe when called from the main thread)
     print(f"\n[INCOMING FILE REQUEST]")
     print(f"  Peer: {peer_name}")
     print(f"  File: {filename}")

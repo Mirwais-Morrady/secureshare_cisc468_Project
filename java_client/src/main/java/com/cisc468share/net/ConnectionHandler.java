@@ -3,6 +3,7 @@ package com.cisc468share.net;
 import com.cisc468share.crypto.HandshakeManager;
 import com.cisc468share.files.ShareManager;
 import com.cisc468share.crypto.SecureSession;
+import com.cisc468share.net.ConsentManager;
 import com.cisc468share.router.MessageRouter;
 
 import java.net.Socket;
@@ -16,20 +17,20 @@ import java.net.Socket;
 public class ConnectionHandler {
 
     private final HandshakeManager handshakeManager;
-
-    /** Construct with identity information for the handshake. */
     private final ShareManager shareManager;
+    private final ConsentManager consentManager;
 
-    /** Construct with identity information for the handshake. */
-    public ConnectionHandler(HandshakeManager handshakeManager, ShareManager shareManager) {
+    public ConnectionHandler(HandshakeManager handshakeManager, ShareManager shareManager, ConsentManager consentManager) {
         this.handshakeManager = handshakeManager;
         this.shareManager = shareManager;
+        this.consentManager = consentManager;
     }
 
     /** Construct without identity — plain echo mode for testing. */
     public ConnectionHandler() {
         this.handshakeManager = null;
         this.shareManager = null;
+        this.consentManager = null;
     }
 
     public void handle(Socket socket) {
@@ -45,7 +46,7 @@ public class ConnectionHandler {
             SecureSession session = handshakeManager.executeServerHandshake(socket);
             System.out.println("[NET] Handshake complete — session: " + session.sessionId);
 
-            MessageRouter router = new MessageRouter(socket, session, "peer", "unknown", shareManager);
+            MessageRouter router = new MessageRouter(socket, session, "peer", "unknown", shareManager, consentManager);
             router.run();
 
         } catch (Exception e) {

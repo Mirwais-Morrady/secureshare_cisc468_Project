@@ -2,6 +2,7 @@ package com.cisc468share.router;
 
 import com.cisc468share.crypto.SecureSession;
 import com.cisc468share.files.ShareManager;
+import com.cisc468share.net.ConsentManager;
 import com.cisc468share.net.FileTransfer;
 import com.cisc468share.net.Framing;
 import com.cisc468share.net.SecureChannel;
@@ -31,14 +32,17 @@ public class MessageRouter {
     private final String peerName;
     private final String peerId;
     private final ShareManager shareManager;
+    private final ConsentManager consentManager;
 
     public MessageRouter(Socket socket, SecureSession session,
-                         String peerName, String peerId, ShareManager shareManager) {
+                         String peerName, String peerId,
+                         ShareManager shareManager, ConsentManager consentManager) {
         this.socket = socket;
         this.channel = new SecureChannel(socket, session);
         this.peerName = peerName;
         this.peerId = peerId;
         this.shareManager = shareManager;
+        this.consentManager = consentManager;
     }
 
     /** Main loop: receive, decrypt, dispatch. */
@@ -85,14 +89,23 @@ public class MessageRouter {
         Number sizeNum = (Number) msg.getOrDefault("filesize", 0);
         long filesize = sizeNum.longValue();
 
-        // Automatic consent for now (CLI integration would prompt the user)
-        System.out.println("[INCOMING FILE REQUEST] From: " + peerName
-                + "  File: " + filename + "  Size: " + filesize + " bytes");
-        System.out.println("[INFO] Auto-accepting (CLI consent not yet integrated in Java)");
+        boolean accepted = false;
+        try {
+            // Queue the request — the main CLI thread will print the prompt
+            // and respond, then unblock this background thread.
+            accepted = consentManager.request(peerName, filename, filesize);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
 
-        currentFile = filename;
-        chunkBuffer.clear();
-        sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_ACCEPT, "file", filename));
+        if (accepted) {
+            currentFile = filename;
+            chunkBuffer.clear();
+            sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_ACCEPT, "file", filename));
+        } else {
+            sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_DENY, "file", filename,
+                           "reason", "User declined"));
+        }
     }
 
     private void onGetFileRequest(Map<String, Object> msg) {
