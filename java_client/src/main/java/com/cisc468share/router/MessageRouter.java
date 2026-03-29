@@ -75,10 +75,9 @@ public class MessageRouter {
     private String currentFile = null;
 
     private void onListFiles() {
-        List<String> files = new ArrayList<>();
-        // In a real application, retrieve from ShareManager
+        List<String> files = shareManager.listFiles();
         sendMsg(Map.of("type", MessageTypes.LIST_FILES_RESPONSE, "files", files));
-        System.out.println("[INFO] Sent file list to " + peerName);
+        System.out.println("[INFO] Sent file list (" + files.size() + " files) to " + peerName);
     }
 
     private void onFileRequest(Map<String, Object> msg) {
