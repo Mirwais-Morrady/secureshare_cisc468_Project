@@ -23,19 +23,29 @@ def send_file(ctx, cmd):
 
     peer_name = args[1]
     file_arg  = " ".join(args[2:])
+    filename = Path(file_arg).name
+    file_data = None
+    file_size = None
 
     # Resolve the file: check as-is, then inside data/shared/
     file_path = Path(file_arg)
-    if not file_path.exists():
-        shared_path = Path("data/shared") / file_arg
-        if shared_path.exists():
-            file_path = shared_path
-        else:
-            print(f"[ERROR] File not found: '{file_arg}'")
-            print(f"  Checked: {file_path}")
-            print(f"  Checked: {shared_path}")
-            print(f"  Tip: run 'list' to see your shared files.")
+    if file_path.exists():
+        file_size = file_path.stat().st_size
+    elif ctx["share_manager"].has_file(file_arg):
+        try:
+            file_data = ctx["share_manager"].get_file_bytes(file_arg)
+            file_size = len(file_data)
+            filename = file_arg
+        except Exception as e:
+            print(f"[ERROR] Could not read shared file '{file_arg}': {e}")
             return
+    else:
+        shared_path = Path("data/shared") / file_arg
+        print(f"[ERROR] File not found: '{file_arg}'")
+        print(f"  Checked: {file_path}")
+        print(f"  Checked: {shared_path}")
+        print(f"  Tip: run 'list' to see your shared files.")
+        return
 
     # Auto-connect if needed
     conn = ctx.get("connections", {}).get(peer_name)
@@ -51,7 +61,7 @@ def send_file(ctx, cmd):
     stream  = conn["stream"]
     session = conn["session"]
 
-    print(f"[SEND] File      : {file_path.name} ({file_path.stat().st_size:,} bytes)")
+    print(f"[SEND] File      : {filename} ({file_size:,} bytes)")
     print(f"[SEND] Recipient : {peer_name}")
     print(f"[SEND] Sending FILE_REQUEST — waiting for '{peer_name}' to accept or deny ...")
     print(f"       >>> Watch the other terminal for the consent prompt <<<")
@@ -59,7 +69,10 @@ def send_file(ctx, cmd):
 
     try:
         mgr = TransferManager(sock, session, peer_name, stream=stream)
-        success = mgr.send_file(file_path)
+        if file_data is not None:
+            success = mgr.send_bytes(filename, file_data)
+        else:
+            success = mgr.send_file(file_path)
     except Exception as e:
         print(f"[ERROR] Transfer failed: {e}")
         ctx["connections"].pop(peer_name, None)
@@ -67,8 +80,8 @@ def send_file(ctx, cmd):
 
     print()
     if success:
-        print(f"[OK] '{file_path.name}' delivered to '{peer_name}' successfully.")
+        print(f"[OK] '{filename}' delivered to '{peer_name}' successfully.")
         print(f"     The file was sent over AES-256-GCM encrypted transport.")
         print(f"     SHA-256 integrity hash was verified by the receiver.")
     else:
-        print(f"[INFO] Transfer of '{file_path.name}' was denied or cancelled by '{peer_name}'.")
+        print(f"[INFO] Transfer of '{filename}' was denied or cancelled by '{peer_name}'.")

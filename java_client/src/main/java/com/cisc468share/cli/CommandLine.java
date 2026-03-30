@@ -16,6 +16,7 @@ import com.cisc468share.protocol.MessageTypes;
 import com.cisc468share.runtime.RuntimeLauncher;
 import com.cisc468share.storage.ContactsStore;
 import com.cisc468share.storage.ManifestStore;
+import com.cisc468share.storage.VaultStore;
 
 import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
@@ -73,6 +74,7 @@ public class CommandLine {
     private final ConsentManager  consentManager;
     private final ManifestStore   manifestStore;
     private final ContactsStore   contactsStore;
+    private final VaultStore      vaultStore;
     private final Path            identityDir;
 
     // Identity — mutable after rotate-key
@@ -91,7 +93,8 @@ public class CommandLine {
                        Scanner scanner, ConsentManager consentManager,
                        String peerName, String peerId, byte[] publicKeyDer,
                        PrivateKey privateKey, Path identityDir,
-                       ManifestStore manifestStore, ContactsStore contactsStore) {
+                       ManifestStore manifestStore, ContactsStore contactsStore,
+                       VaultStore vaultStore) {
         this.shareManager  = shareManager;
         this.mdnsService   = mdnsService;
         this.scanner       = scanner;
@@ -103,6 +106,7 @@ public class CommandLine {
         this.identityDir   = identityDir;
         this.manifestStore = manifestStore;
         this.contactsStore = contactsStore;
+        this.vaultStore = vaultStore;
     }
 
     // ------------------------------------------------------------------
@@ -151,11 +155,13 @@ public class CommandLine {
                 case "peers"      -> listPeers();
                 case "list"       -> listSharedFiles();
                 case "share"      -> shareFile(arg1);
+                case "store"      -> cmdStore(arg1);
                 case "connect"    -> connectPeer(arg1);
                 case "list-files" -> cmdListFiles(arg1);
                 case "send"       -> cmdSend(arg1, arg2);
                 case "request"    -> cmdRequest(arg1, arg2);
                 case "fetch"      -> cmdFetch(arg1, arg2);
+                case "vault"      -> cmdVault(arg1, arg2);
                 case "rotate-key" -> cmdRotateKey();
                 case "exit", "quit" -> { System.out.println("Exiting..."); return; }
                 default -> System.out.println("Unknown command. Type 'help'");
@@ -202,11 +208,15 @@ public class CommandLine {
         System.out.println("  peers                        list discovered peers");
         System.out.println("  list                         list your own shared files");
         System.out.println("  share <file>                 copy file into data/shared and sign manifest");
+        System.out.println("  store <file>                 store a local file in the encrypted vault");
         System.out.println("  connect <peer>               connect and authenticate with a peer");
         System.out.println("  list-files <peer>            list files shared by a peer (no consent needed)");
         System.out.println("  send <peer> <file>           send a file to a peer (they must consent)");
         System.out.println("  request <peer> <file>        request a file from a peer (they must consent)");
         System.out.println("  fetch <peer> <file>          fetch from redistributor and verify against manifest");
+        System.out.println("  vault list                   list files stored in the encrypted vault");
+        System.out.println("  vault get <file>             export a vault file to data/downloads/");
+        System.out.println("  vault delete <file>          delete a file from the encrypted vault");
         System.out.println("  rotate-key                   generate new RSA key pair and notify connected peers");
         System.out.println("  exit                         quit program");
     }
@@ -242,21 +252,95 @@ public class CommandLine {
                 System.out.println("[ERROR] File not found: " + sourcePath);
                 return;
             }
-            Path dest = shareManager.getSharedDir().resolve(source.getFileName());
-            Files.createDirectories(shareManager.getSharedDir());
-            Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("[OK] File shared: " + dest.getFileName());
+            shareManager.addFile(source);
+            System.out.println("[OK] File shared: " + source.getFileName());
+            System.out.println("     Stored encrypted at rest in the shared vault");
 
             // Build and sign a manifest for offline redistribution verification
-            Map<String, Object> manifest = ManifestManager.buildManifest(peerId, peerName, dest);
+            Map<String, Object> manifest = ManifestManager.buildManifest(peerId, peerName, source);
             Map<String, Object> signed   = ManifestManager.signManifest(privateKey, manifest);
             manifestStore.save(signed);
-            System.out.println("[OK] Manifest signed and stored for '" + dest.getFileName() + "'");
+            System.out.println("[OK] Manifest signed and stored for '" + source.getFileName() + "'");
             System.out.println("     SHA-256 : " + signed.get("file_sha256_hex"));
             System.out.println("     Owner   : " + peerName + " (" + peerId.substring(0, 16) + "...)");
 
         } catch (Exception e) {
             System.out.println("[ERROR] share failed: " + e.getMessage());
+        }
+    }
+
+    private void cmdStore(String sourcePath) {
+        if (sourcePath.isEmpty()) {
+            System.out.println("Usage: store <file_path>");
+            return;
+        }
+
+        try {
+            Path source = Path.of(sourcePath);
+            if (!Files.exists(source) || !Files.isRegularFile(source)) {
+                System.out.println("[ERROR] File not found: " + sourcePath);
+                return;
+            }
+
+            vaultStore.storeFile(source.getFileName().toString(), Files.readAllBytes(source));
+            System.out.println("[OK] Stored '" + source.getFileName() + "' in the encrypted vault.");
+            System.out.println("     The plaintext file remains at its original location unless you remove it.");
+        } catch (Exception e) {
+            System.out.println("[ERROR] store failed: " + e.getMessage());
+        }
+    }
+
+    private void cmdVault(String action, String remainder) {
+        if (action.isEmpty()) {
+            System.out.println("Usage:");
+            System.out.println("  vault list");
+            System.out.println("  vault get <file>");
+            System.out.println("  vault delete <file>");
+            return;
+        }
+
+        try {
+            switch (action) {
+                case "list" -> {
+                    List<String> files = vaultStore.listFiles();
+                    if (files.isEmpty()) {
+                        System.out.println("Vault is empty.");
+                    } else {
+                        System.out.println("Encrypted vault files:");
+                        for (String file : files) {
+                            System.out.println("  " + file);
+                        }
+                    }
+                }
+                case "get" -> {
+                    if (remainder.isEmpty()) {
+                        System.out.println("Usage: vault get <file>");
+                        return;
+                    }
+                    byte[] data = vaultStore.getFile(remainder);
+                    Path downloads = Paths.get("data", "downloads");
+                    Files.createDirectories(downloads);
+                    Path outPath = downloads.resolve(remainder);
+                    Files.write(outPath, data);
+                    System.out.println("[OK] Exported '" + remainder + "' from vault to " + outPath);
+                }
+                case "delete" -> {
+                    if (remainder.isEmpty()) {
+                        System.out.println("Usage: vault delete <file>");
+                        return;
+                    }
+                    vaultStore.deleteFile(remainder);
+                    System.out.println("[OK] Deleted '" + remainder + "' from the encrypted vault.");
+                }
+                default -> {
+                    System.out.println("Usage:");
+                    System.out.println("  vault list");
+                    System.out.println("  vault get <file>");
+                    System.out.println("  vault delete <file>");
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[ERROR] vault command failed: " + e.getMessage());
         }
     }
 
@@ -367,16 +451,20 @@ public class CommandLine {
 
         // Resolve file: try as-is, then data/shared/
         Path filePath = Paths.get(filename);
-        if (!Files.exists(filePath)) filePath = shareManager.getFilePath(filename);
+        byte[] sharedData = null;
         if (!Files.exists(filePath)) {
-            System.out.println("[ERROR] File not found: " + filename); return;
+            if (shareManager.hasFile(filename)) {
+                sharedData = shareManager.getFileBytes(filename);
+            } else {
+                System.out.println("[ERROR] File not found: " + filename); return;
+            }
         }
 
         Conn conn = getOrConnect(targetName);
         if (conn == null) return;
 
         try {
-            long filesize = Files.size(filePath);
+            long filesize = sharedData != null ? sharedData.length : Files.size(filePath);
             System.out.println("[SEND] File     : " + filename);
             System.out.println("[SEND] To       : " + targetName);
             System.out.println("[SEND] Sending FILE_REQUEST — waiting for consent ...");
@@ -403,8 +491,8 @@ public class CommandLine {
 
             System.out.println("[INFO] '" + targetName + "' accepted — sending file ...");
 
-            byte[] data   = Files.readAllBytes(filePath);
-            List<byte[]> chunks = FileTransfer.chunkFile(filePath.toFile());
+            byte[] data   = sharedData != null ? sharedData : Files.readAllBytes(filePath);
+            List<byte[]> chunks = com.cisc468share.files.Chunker.chunkBytes(data);
             for (int i = 0; i < chunks.size(); i++) {
                 conn.channel.send(MessageTypes.FILE_CHUNK, Map.of(
                         "type",  MessageTypes.FILE_CHUNK,
@@ -651,7 +739,7 @@ public class CommandLine {
      * Reads FILE_CHUNK + FILE_TRANSFER_COMPLETE from the channel.
      * If expectedSha != null, verifies SHA-256 against it.
      * If manifest != null and ownerPubKey != null, verifies manifest signature.
-     * Saves the file to data/downloads/.
+    * Saves the file to the encrypted vault.
      */
     private void receiveFileChunks(Conn conn, String filename,
                                    String expectedSha,
@@ -724,15 +812,12 @@ public class CommandLine {
                     }
                 }
 
-                // Save
-                Path downloads = Paths.get("data", "downloads");
-                Files.createDirectories(downloads);
-                Path outPath = downloads.resolve(filename);
-                Files.write(outPath, assembled);
+                // Save to encrypted vault
+                vaultStore.storeFile(filename, assembled);
 
                 System.out.println();
                 System.out.println("[OK] '" + filename + "' received, verified, and saved.");
-                System.out.println("  Saved to  : " + outPath);
+                System.out.println("  Saved to  : encrypted vault");
                 System.out.println("  Transport : AES-256-GCM encrypted end-to-end");
                 return;
 

@@ -8,11 +8,15 @@ import java.util.List;
 
 public class FileTransfer {
 
+    public static List<byte[]> chunkBytes(byte[] data) throws Exception {
+        return Chunker.chunkBytes(data);
+    }
+
     public static List<byte[]> chunkFile(File file) throws Exception {
 
         byte[] data = Files.readAllBytes(file.toPath());
 
-        return Chunker.chunkBytes(data);
+        return chunkBytes(data);
 
     }
 }

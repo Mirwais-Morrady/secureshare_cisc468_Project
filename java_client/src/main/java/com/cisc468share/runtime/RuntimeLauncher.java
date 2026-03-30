@@ -10,7 +10,10 @@ import com.cisc468share.net.*;
 import com.cisc468share.net.ConsentManager;
 import com.cisc468share.storage.ContactsStore;
 import com.cisc468share.storage.ManifestStore;
+import com.cisc468share.storage.ShareIndexStore;
+import com.cisc468share.storage.VaultStore;
 
+import java.io.Console;
 import java.net.ServerSocket;
 import java.net.InetAddress;
 import java.nio.file.Files;
@@ -72,15 +75,21 @@ public class RuntimeLauncher {
         HandshakeManager handshakeManager = new HandshakeManager(
                 peerName, peerId, publicKeyDer, privateKey);
 
-        ShareManager   shareManager   = new ShareManager(Paths.get("data", "shared"));
         ManifestStore  manifestStore  = new ManifestStore(Paths.get("data", "manifests.json"));
         ContactsStore  contactsStore  = new ContactsStore(Paths.get("data", "contacts.json"));
         ConsentManager consentManager = new ConsentManager();
         Scanner        sharedScanner  = new Scanner(System.in);
+        String         vaultPassword  = promptForVaultPassword(sharedScanner);
+        VaultStore     vaultStore     = new VaultStore(Paths.get("data", "vault"), vaultPassword);
+        VaultStore     sharedVaultStore = new VaultStore(Paths.get("data", "shared_vault"), vaultPassword);
+        ShareManager   shareManager   = new ShareManager(
+            Paths.get("data", "shared"),
+            sharedVaultStore,
+            new ShareIndexStore(Paths.get("data", "share_index.json")));
 
         // TcpServer prints "TCP server listening on 0.0.0.0:<port>"
         TcpServer server = new TcpServer(serverSocket,
-                new ConnectionHandler(handshakeManager, shareManager, consentManager, contactsStore));
+            new ConnectionHandler(handshakeManager, shareManager, consentManager, contactsStore, vaultStore));
 
         new Thread(() -> {
             try { server.start(); } catch (Exception e) { e.printStackTrace(); }
@@ -89,11 +98,12 @@ public class RuntimeLauncher {
         // Give the server thread a moment to print its startup line before CLI starts
         Thread.sleep(50);
         System.out.println("[INFO] Listening on port " + port);
+        System.out.println("[INFO] Local vault unlocked.");
 
         CommandLine cli = new CommandLine(
                 shareManager, mdns, sharedScanner, consentManager,
                 peerName, peerId, publicKeyDer, privateKey, identityDir,
-                manifestStore, contactsStore);
+            manifestStore, contactsStore, vaultStore);
 
         cli.start();
     }
@@ -132,5 +142,25 @@ public class RuntimeLauncher {
                    .replace("-----END PUBLIC KEY-----", "")
                    .replaceAll("\\s", ""));
         return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(der));
+    }
+
+    private static String promptForVaultPassword(Scanner scanner) {
+        Console console = System.console();
+        while (true) {
+            String password;
+            if (console != null) {
+                char[] chars = console.readPassword("Vault password: ");
+                password = chars == null ? "" : new String(chars).trim();
+            } else {
+                System.out.print("Vault password: ");
+                System.out.flush();
+                password = scanner.nextLine().trim();
+            }
+
+            if (!password.isEmpty()) {
+                return password;
+            }
+            System.out.println("[ERROR] Vault password cannot be empty.");
+        }
     }
 }

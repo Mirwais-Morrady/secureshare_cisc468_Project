@@ -40,8 +40,10 @@ class TransferManager:
             bool: True if transfer completed successfully, False if denied or failed
         """
         data = file_path.read_bytes()
+        return self.send_bytes(file_path.name, data)
+
+    def send_bytes(self, filename: str, data: bytes) -> bool:
         filesize = len(data)
-        filename = file_path.name
         sha256_hex = hashlib.sha256(data).hexdigest()
 
         # 1. Send FILE_REQUEST and wait for consent

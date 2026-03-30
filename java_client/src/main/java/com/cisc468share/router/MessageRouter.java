@@ -10,6 +10,7 @@ import com.cisc468share.net.SecureChannel;
 import com.cisc468share.protocol.MessageTypes;
 import com.cisc468share.protocol.Serializer;
 import com.cisc468share.storage.ContactsStore;
+import com.cisc468share.storage.VaultStore;
 
 
 import java.nio.file.Files;
@@ -36,11 +37,12 @@ public class MessageRouter {
     private final ShareManager shareManager;
     private final ConsentManager consentManager;
     private final ContactsStore contactsStore;
+    private final VaultStore vaultStore;
 
     public MessageRouter(Socket socket, SecureSession session,
                          String peerName, String peerId,
                          ShareManager shareManager, ConsentManager consentManager,
-                         ContactsStore contactsStore) {
+                         ContactsStore contactsStore, VaultStore vaultStore) {
         this.socket = socket;
         this.channel = new SecureChannel(socket, session);
         this.peerName = peerName;
@@ -48,6 +50,7 @@ public class MessageRouter {
         this.shareManager = shareManager;
         this.consentManager = consentManager;
         this.contactsStore = contactsStore;
+        this.vaultStore = vaultStore;
     }
 
     /** Main loop: receive, decrypt, dispatch. */
@@ -116,9 +119,7 @@ public class MessageRouter {
 
     private void onGetFileRequest(Map<String, Object> msg) {
         String filename = (String) msg.get("file");
-        Path filePath = shareManager.getFilePath(filename);
-
-        if (!Files.exists(filePath)) {
+        if (!shareManager.hasFile(filename)) {
             System.out.println("[ERROR] Requested file not found: " + filename);
             sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_DENY, "file", filename,
                            "reason", "File not found: " + filename));
@@ -129,7 +130,7 @@ public class MessageRouter {
         boolean accepted = false;
         try {
             accepted = consentManager.request(peerName, filename,
-                    Files.size(filePath));
+                    shareManager.getFileSize(filename));
         } catch (Exception e) {
             Thread.currentThread().interrupt();
             return;
@@ -144,8 +145,8 @@ public class MessageRouter {
         // Accepted — send FILE_REQUEST_ACCEPT then the file
         sendMsg(Map.of("type", MessageTypes.FILE_REQUEST_ACCEPT, "file", filename));
         try {
-            byte[] data = Files.readAllBytes(filePath);
-            List<byte[]> chunks = FileTransfer.chunkFile(filePath.toFile());
+            byte[] data = shareManager.getFileBytes(filename);
+            List<byte[]> chunks = FileTransfer.chunkBytes(data);
             for (int i = 0; i < chunks.size(); i++) {
                 sendMsg(Map.of(
                     "type", MessageTypes.FILE_CHUNK,
@@ -211,13 +212,18 @@ public class MessageRouter {
                 return;
             }
 
-            // Save to shared dir so this peer can redistribute it
-            Path savePath = shareManager.getSharedDir().resolve(filename);
-            Files.write(savePath, assembled);
-
-            System.out.println("[INFO] '" + filename + "' received (" + assembled.length + " bytes)");
-            System.out.println("[INFO] Integrity OK: SHA-256=" + actualSha256.substring(0, 16) + "...");
-            System.out.println("[INFO] Saved to: " + savePath);
+            if (vaultStore != null) {
+                vaultStore.storeFile(filename, assembled);
+                System.out.println("[INFO] '" + filename + "' received (" + assembled.length + " bytes)");
+                System.out.println("[INFO] Integrity OK: SHA-256=" + actualSha256.substring(0, 16) + "...");
+                System.out.println("[INFO] Saved to encrypted vault");
+            } else {
+                Path savePath = shareManager.getSharedDir().resolve(filename);
+                Files.write(savePath, assembled);
+                System.out.println("[INFO] '" + filename + "' received (" + assembled.length + " bytes)");
+                System.out.println("[INFO] Integrity OK: SHA-256=" + actualSha256.substring(0, 16) + "...");
+                System.out.println("[INFO] Saved to: " + savePath);
+            }
 
         } catch (Exception e) {
             System.out.println("[ERROR] Integrity check error: " + e.getMessage());
