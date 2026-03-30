@@ -190,14 +190,19 @@ def fetch_file(ctx, cmd):
                         return
 
                 # -- Save --
-                downloads = Path("data/downloads")
-                downloads.mkdir(parents=True, exist_ok=True)
-                out_path = downloads / filename
-                out_path.write_bytes(data)
+                if "vault_store" in ctx:
+                    ctx["vault_store"].store_file(filename, data)
+                    save_desc = "encrypted vault"
+                else:
+                    downloads = Path("data/downloads")
+                    downloads.mkdir(parents=True, exist_ok=True)
+                    out_path = downloads / filename
+                    out_path.write_bytes(data)
+                    save_desc = str(out_path)
 
                 print()
                 print(f"[OK] '{filename}' fetched, verified, and saved.")
-                print(f"  Saved to  : {out_path}")
+                print(f"  Saved to  : {save_desc}")
                 print(f"  Transport : AES-256-GCM encrypted end-to-end")
                 return
 

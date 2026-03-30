@@ -7,6 +7,7 @@ import com.cisc468share.files.ShareManager;
 import com.cisc468share.net.ConsentManager;
 import com.cisc468share.router.MessageRouter;
 import com.cisc468share.storage.ContactsStore;
+import com.cisc468share.storage.VaultStore;
 
 import java.net.Socket;
 import java.util.Base64;
@@ -25,13 +26,16 @@ public class ConnectionHandler {
     private final ShareManager shareManager;
     private final ConsentManager consentManager;
     private final ContactsStore contactsStore;
+    private final VaultStore vaultStore;
 
     public ConnectionHandler(HandshakeManager handshakeManager, ShareManager shareManager,
-                             ConsentManager consentManager, ContactsStore contactsStore) {
+                             ConsentManager consentManager, ContactsStore contactsStore,
+                             VaultStore vaultStore) {
         this.handshakeManager = handshakeManager;
         this.shareManager = shareManager;
         this.consentManager = consentManager;
         this.contactsStore = contactsStore;
+        this.vaultStore = vaultStore;
     }
 
     /** Construct without identity — plain echo mode for testing. */
@@ -40,6 +44,7 @@ public class ConnectionHandler {
         this.shareManager = null;
         this.consentManager = null;
         this.contactsStore = null;
+        this.vaultStore = null;
     }
 
     public void handle(Socket socket) {
@@ -76,7 +81,7 @@ public class ConnectionHandler {
 
             MessageRouter router = new MessageRouter(socket, session,
                     result.remotePeerName, result.remotePeerId,
-                    shareManager, consentManager, contactsStore);
+                    shareManager, consentManager, contactsStore, vaultStore);
             router.run();
 
         } catch (Exception e) {

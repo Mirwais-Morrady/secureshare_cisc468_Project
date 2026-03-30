@@ -7,6 +7,8 @@ from .commands_send import send_file
 from .commands_request import request_file
 from .commands_fetch import fetch_file
 from .commands_rotate_key import rotate_key
+from .commands_store import store_file
+from .commands_vault import vault_command
 
 def handle_command(ctx, cmd):
     parts = cmd.strip().split()
@@ -27,6 +29,10 @@ def handle_command(ctx, cmd):
         print("  fetch <peer> <file>          fetch from a redistributor and verify against signed manifest")
         print("  list                         list your own shared files")
         print("  share <file>                 add a file to your shared folder")
+        print("  store <file>                 store a local file in the encrypted vault")
+        print("  vault list                   list files stored in the encrypted vault")
+        print("  vault get <file>             export a vault file to data/downloads/")
+        print("  vault delete <file>          delete a file from the encrypted vault")
         print("  rotate-key                   generate new RSA key pair and notify connected peers")
         print("  exit                         quit program")
     elif command == "list":
@@ -39,6 +45,12 @@ def handle_command(ctx, cmd):
 
         file_path = " ".join(parts[1:])
         share_file(ctx, file_path)
+
+    elif command == "store":
+        store_file(ctx, cmd)
+
+    elif command == "vault":
+        vault_command(ctx, cmd)
 
     elif command == "peers":
         peers(ctx)

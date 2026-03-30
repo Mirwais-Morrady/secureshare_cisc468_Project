@@ -108,17 +108,21 @@ def request_file(ctx, cmd):
                     print(f"  The file may have been tampered with in transit. Discarding.")
                     return
 
-                # Save to downloads/
-                downloads = Path("data/downloads")
-                downloads.mkdir(parents=True, exist_ok=True)
-                out_path = downloads / filename
-                out_path.write_bytes(data)
+                if "vault_store" in ctx:
+                    ctx["vault_store"].store_file(filename, data)
+                    save_desc = "encrypted vault"
+                else:
+                    downloads = Path("data/downloads")
+                    downloads.mkdir(parents=True, exist_ok=True)
+                    out_path = downloads / filename
+                    out_path.write_bytes(data)
+                    save_desc = str(out_path)
 
                 print(f"[OK] '{filename}' received and saved.")
                 print(f"  Size      : {len(data):,} bytes")
                 print(f"  SHA-256   : {actual_sha256}")
                 print(f"  Integrity : OK — hash matches what '{peer_name}' sent")
-                print(f"  Saved to  : {out_path}")
+                print(f"  Saved to  : {save_desc}")
                 print(f"  Transport : AES-256-GCM encrypted end-to-end")
                 return
 

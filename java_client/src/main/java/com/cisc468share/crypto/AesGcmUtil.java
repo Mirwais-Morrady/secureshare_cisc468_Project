@@ -14,7 +14,9 @@ public class AesGcmUtil {
         GCMParameterSpec spec = new GCMParameterSpec(128, nonce);
 
         cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
-        cipher.updateAAD(aad);
+        if (aad != null && aad.length > 0) {
+            cipher.updateAAD(aad);
+        }
 
         return cipher.doFinal(plaintext);
     }
@@ -27,7 +29,9 @@ public class AesGcmUtil {
         GCMParameterSpec spec = new GCMParameterSpec(128, nonce);
 
         cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
-        cipher.updateAAD(aad);
+        if (aad != null && aad.length > 0) {
+            cipher.updateAAD(aad);
+        }
 
         return cipher.doFinal(ciphertext);
     }
