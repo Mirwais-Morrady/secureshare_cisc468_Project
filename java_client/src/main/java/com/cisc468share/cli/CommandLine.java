@@ -153,7 +153,7 @@ public class CommandLine {
             switch (cmd) {
                 case "help"       -> printHelp();
                 case "peers"      -> listPeers();
-                case "list"       -> listSharedFiles();
+                case "list"       -> listSharedFiles(arg1);
                 case "share"      -> shareFile(arg1);
                 case "store"      -> cmdStore(arg1);
                 case "connect"    -> connectPeer(arg1);
@@ -207,6 +207,7 @@ public class CommandLine {
         System.out.println("  help                         show commands");
         System.out.println("  peers                        list discovered peers");
         System.out.println("  list                         list your own shared files");
+        System.out.println("  list downloads               list files in data/downloads/");
         System.out.println("  share <file>                 copy file into data/shared and sign manifest");
         System.out.println("  store <file>                 store a local file in the encrypted vault");
         System.out.println("  connect <peer>               connect and authenticate with a peer");
@@ -234,7 +235,23 @@ public class CommandLine {
         }
     }
 
-    private void listSharedFiles() {
+    private void listSharedFiles(String arg) {
+        if ("downloads".equals(arg)) {
+            Path dlDir = Paths.get("data", "downloads");
+            try {
+                if (!Files.exists(dlDir)) { System.out.println("No downloads folder yet."); return; }
+                List<Path> entries = Files.list(dlDir).filter(Files::isRegularFile).toList();
+                if (entries.isEmpty()) {
+                    System.out.println("Downloads folder is empty.");
+                } else {
+                    System.out.println("Files in data/downloads/:");
+                    for (Path p : entries) System.out.println("  " + p.getFileName());
+                }
+            } catch (Exception e) {
+                System.out.println("[ERROR] Could not list downloads: " + e.getMessage());
+            }
+            return;
+        }
         List<String> files = shareManager.listFiles();
         if (files.isEmpty()) {
             System.out.println("No shared files.");
@@ -249,8 +266,14 @@ public class CommandLine {
         try {
             Path source = Path.of(sourcePath);
             if (!Files.exists(source) || !Files.isRegularFile(source)) {
-                System.out.println("[ERROR] File not found: " + sourcePath);
-                return;
+                Path fallback = Paths.get("data", "downloads", sourcePath);
+                if (Files.exists(fallback) && Files.isRegularFile(fallback)) {
+                    source = fallback;
+                } else {
+                    System.out.println("[ERROR] File not found: " + sourcePath);
+                    System.out.println("       Looked in: ./" + sourcePath + " and data/downloads/" + sourcePath);
+                    return;
+                }
             }
             shareManager.addFile(source);
             System.out.println("[OK] File shared: " + source.getFileName());
@@ -278,8 +301,14 @@ public class CommandLine {
         try {
             Path source = Path.of(sourcePath);
             if (!Files.exists(source) || !Files.isRegularFile(source)) {
-                System.out.println("[ERROR] File not found: " + sourcePath);
-                return;
+                Path fallback = Paths.get("data", "downloads", sourcePath);
+                if (Files.exists(fallback) && Files.isRegularFile(fallback)) {
+                    source = fallback;
+                } else {
+                    System.out.println("[ERROR] File not found: " + sourcePath);
+                    System.out.println("       Looked in: ./" + sourcePath + " and data/downloads/" + sourcePath);
+                    return;
+                }
             }
 
             vaultStore.storeFile(source.getFileName().toString(), Files.readAllBytes(source));

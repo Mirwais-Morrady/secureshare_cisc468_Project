@@ -64,10 +64,6 @@ public class RuntimeLauncher {
         serverSocket.setReuseAddress(true);
         int port = serverSocket.getLocalPort();
 
-        // Start mDNS advertisement + discovery using the already-bound port
-        MdnsService mdns = new MdnsService();
-        mdns.start(peerName, port);
-
         // Startup messages — match Python's format
         System.out.println("[INFO] Identity: " + peerName);
         System.out.println("[INFO] Peer ID:  " + peerId);
@@ -80,6 +76,10 @@ public class RuntimeLauncher {
         ConsentManager consentManager = new ConsentManager();
         Scanner        sharedScanner  = new Scanner(System.in);
         String         vaultPassword  = promptForVaultPassword(sharedScanner);
+
+        // Start mDNS advertisement + discovery AFTER password prompt
+        MdnsService mdns = new MdnsService();
+        mdns.start(peerName, port);
         VaultStore     vaultStore     = new VaultStore(Paths.get("data", "vault"), vaultPassword);
         VaultStore     sharedVaultStore = new VaultStore(Paths.get("data", "shared_vault"), vaultPassword);
         ShareManager   shareManager   = new ShareManager(

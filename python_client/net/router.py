@@ -8,11 +8,14 @@ appropriate handler based on the message type.
 import hashlib
 
 from crypto.session import encrypt, decrypt
+from files.chunker import chunk_bytes
+from net.consent_handler import prompt_receive_consent
 from net.file_receiver import FileReceiver
 from net.framing import decode_frame, encode_frame, FramingError
 from protocol.message_types import (
     LIST_FILES_REQUEST, LIST_FILES_RESPONSE,
     FILE_REQUEST, FILE_REQUEST_ACCEPT, FILE_REQUEST_DENY,
+    GET_FILE_REQUEST,
     FILE_CHUNK, FILE_TRANSFER_COMPLETE,
     KEY_MIGRATION,
     PING, PONG, ERROR,
@@ -60,6 +63,8 @@ class MessageRouter:
             self._on_list_files()
         elif t == FILE_REQUEST:
             self._on_file_request(msg)
+        elif t == GET_FILE_REQUEST:
+            self._on_get_file_request(msg)
         elif t == FILE_CHUNK:
             self._on_file_chunk(msg)
         elif t == FILE_TRANSFER_COMPLETE:
@@ -98,6 +103,52 @@ class MessageRouter:
             self._send({"type": FILE_REQUEST_DENY, "file": filename,
                         "reason": "User declined"})
             print(f"[INFO] Declined file '{filename}' from {self.peer_name}")
+
+    def _on_get_file_request(self, msg: dict):
+        """Handle GET_FILE_REQUEST: peer wants us to send them a file (pull with consent)."""
+        filename = msg.get("file", "unknown")
+        share_manager = self.ctx.get("share_manager") if self.ctx else None
+
+        if not share_manager or not share_manager.has_file(filename):
+            print(f"[ERROR] Requested file not found: {filename}")
+            self._send({"type": FILE_REQUEST_DENY, "file": filename,
+                        "reason": f"File not found: {filename}"})
+            return
+
+        try:
+            filesize = share_manager.get_file_size(filename)
+        except Exception:
+            filesize = 0
+
+        consent_mgr = self.ctx.get("consent_manager") if self.ctx else None
+        accepted = prompt_receive_consent(self.peer_name, filename, filesize,
+                                          consent_manager=consent_mgr)
+
+        if not accepted:
+            self._send({"type": FILE_REQUEST_DENY, "file": filename,
+                        "reason": "User declined"})
+            return
+
+        self._send({"type": FILE_REQUEST_ACCEPT, "file": filename})
+
+        try:
+            data = share_manager.get_file_bytes(filename)
+            for i, chunk in enumerate(chunk_bytes(data)):
+                self._send({
+                    "type": FILE_CHUNK,
+                    "file": filename,
+                    "index": i,
+                    "data": chunk.hex(),
+                })
+            sha256_hex = hashlib.sha256(data).hexdigest()
+            self._send({
+                "type": FILE_TRANSFER_COMPLETE,
+                "file": filename,
+                "sha256_hex": sha256_hex,
+            })
+            print(f"[INFO] Sent '{filename}' to {self.peer_name}")
+        except Exception as e:
+            self._send_error(f"Failed to send file: {e}")
 
     def _on_file_chunk(self, msg: dict):
         self._receiver.receive_chunk(msg)

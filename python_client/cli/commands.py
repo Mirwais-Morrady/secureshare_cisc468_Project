@@ -28,6 +28,7 @@ def handle_command(ctx, cmd):
         print("  request <peer> <file>        request a file from a peer (they must consent)")
         print("  fetch <peer> <file>          fetch from a redistributor and verify against signed manifest")
         print("  list                         list your own shared files")
+        print("  list downloads               list files in data/downloads/")
         print("  share <file>                 add a file to your shared folder")
         print("  store <file>                 store a local file in the encrypted vault")
         print("  vault list                   list files stored in the encrypted vault")
@@ -36,7 +37,8 @@ def handle_command(ctx, cmd):
         print("  rotate-key                   generate new RSA key pair and notify connected peers")
         print("  exit                         quit program")
     elif command == "list":
-        list_files(ctx)
+        arg = parts[1] if len(parts) > 1 else ""
+        list_files(ctx, arg)
 
     elif command == "share":
         if len(parts) < 2:
